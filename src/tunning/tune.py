@@ -19,6 +19,7 @@ class ModelTrainer:
             per_device_train_batch_size=self.config.BATCH_SIZE_TRAIN,
             per_device_eval_batch_size=self.config.BATCH_SIZE_EVAL,
             gradient_accumulation_steps=self.config.GRADIENT_ACCUMULATION_STEPS,
+            
             learning_rate=self.config.LEARNING_RATE,
             fp16=self.config.FP16,
             logging_steps=self.config.LOGGING_STEPS,
@@ -26,7 +27,8 @@ class ModelTrainer:
             eval_strategy=self.config.EVAL_STRATEGY,
             eval_steps=self.config.EVAL_STEPS,
             save_total_limit=self.config.SAVE_TOTAL_LIMIT,
-            gradient_checkpointing=self.config.GRADIENT_CHECKPOINTING,
+            gradient_checkpointing=False,
+            gradient_checkpointing_kwargs=None,
             optim=self.config.OPTIMIZER,
             report_to="none",
         )

@@ -9,7 +9,7 @@ class TrainingConfig:
     # Batch sizes
     BATCH_SIZE_TRAIN = 1
     BATCH_SIZE_EVAL = 1
-    GRADIENT_ACCUMULATION_STEPS = 4
+    GRADIENT_ACCUMULATION_STEPS = 8
     
     # Learning
     LEARNING_RATE = 2e-4
