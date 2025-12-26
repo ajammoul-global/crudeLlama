@@ -1,0 +1,39 @@
+﻿# Update .gitignore to exclude secret files
+@"
+# Large files (don't push to GitHub)
+models/base/
+models/fine-tunned/*/adapter_model.safetensors
+models/fine-tunned/*/pytorch_model.bin
+*.bin
+*.pt
+*.pth
+checkpoint-*/
+
+# Data files (will load on Kaggle)
+data/raw/*.csv
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+env/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+wandb/
+
+# SECRETS - NEVER COMMIT THESE
+config/login.py
+env
+.env
+*.token
+*.key
+secrets.py
+"@ | Out-File -FilePath .gitignore -Encoding utf8 -Force
