@@ -17,7 +17,7 @@ class TrainingConfig:
     
     # Optimization
     FP16 = True
-    GRADIENT_CHECKPOINTING = True
+    GRADIENT_CHECKPOINTING = False  # Disable for GPU compatibility (CUDA/cuBLAS issues)
     OPTIMIZER = "paged_adamw_8bit"
     
     # Logging
