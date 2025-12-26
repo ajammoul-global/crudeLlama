@@ -1,5 +1,6 @@
 """Fake news predictor for inference - REUSES ModelLoader!"""
 import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from src.model.model import ModelLoader  # ← REUSE!
 from config import ModelConfig, PathConfig
 
@@ -7,27 +8,55 @@ class FakeNewsPredictor:
     """
     Make predictions on new articles
     Uses ModelLoader for consistency with training
+    Loads merged model by default (LoRA + base model combined)
     """
     
-    def __init__(self, model_path=None):
+    def __init__(self, model_path=None, use_merged=True):
         """
         Initialize predictor
         
         Args:
-            model_path: Path to trained model (default: from config)
+            model_path: Path to trained model (default: merged model)
+            use_merged: If True, load merged model; if False, load LoRA adapters
         """
-        self.model_path = model_path or PathConfig.OUTPUT_DIR
+        if model_path is None:
+            # Use merged model by default (faster, single file)
+            self.model_path = str(PathConfig.MERGED_MODEL_DIR)
+            use_merged = True
+        else:
+            self.model_path = model_path
         
+        print(f"Loading predictor from: {self.model_path}")
+        print(f"Mode: {'Merged model' if use_merged else 'LoRA adapters'}")
         
-        model_loader = ModelLoader()
-        
-     
-        self.tokenizer = model_loader.load_tokenizer(self.model_path)
-        
-     
-        self.model = model_loader.load_finetuned_model(self.model_path)
+        if use_merged:
+            # Load merged model directly (no LoRA needed)
+            self._load_merged_model()
+        else:
+            # Load base model + LoRA adapters
+            self._load_lora_model()
         
         print("✓ Predictor ready!")
+    
+    def _load_merged_model(self):
+        """Load fully merged model (no LoRA)"""
+        print(f"Loading tokenizer from {self.model_path}...")
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
+        self.tokenizer.pad_token = self.tokenizer.eos_token
+        
+        print(f"Loading merged model from {self.model_path}...")
+        self.model = AutoModelForCausalLM.from_pretrained(
+            self.model_path,
+            device_map='auto',
+            torch_dtype=torch.float16,
+        )
+        self.model.eval()
+    
+    def _load_lora_model(self):
+        """Load base model with LoRA adapters"""
+        model_loader = ModelLoader()
+        self.tokenizer = model_loader.load_tokenizer(self.model_path)
+        self.model = model_loader.load_finetuned_model(self.model_path)
     
     def predict(self, title, text=""):
         """

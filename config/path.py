@@ -21,7 +21,8 @@ class PathConfig:
     TRUE_CSV = DATA_DIR / "raw" / "True.csv"
     
     # Model directories
-    MODEL_OUTPUT_DIR = OUTPUT_DIR / "fake_news_detector"
+    MODEL_OUTPUT_DIR = OUTPUT_DIR / "fake_news_detector"           # LoRA adapters only
+    MERGED_MODEL_DIR = OUTPUT_DIR / "fake_news_detector_merged"    # Full merged model
     CHECKPOINT_DIR = OUTPUT_DIR / "checkpoints"
     
     @classmethod
@@ -29,4 +30,5 @@ class PathConfig:
         '''Create directories if they don't exist'''
         cls.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         cls.MODEL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        cls.MERGED_MODEL_DIR.mkdir(parents=True, exist_ok=True)
         cls.CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)

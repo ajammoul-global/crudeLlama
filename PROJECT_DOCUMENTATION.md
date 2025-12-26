@@ -245,7 +245,7 @@ tokenized_data = preprocessor.tokenize_dataset(dataset)  # HF DatasetDict
 
 #### `load_finetuned_model(model_path)`
 - Loads fine-tuned model with LoRA adapters from local directory
-- Used during inference
+- Used during inference with LoRA adapters
 - Expects: `adapter_model.safetensors` + tokenizer files at `model_path`
 - Returns: Merged model with LoRA weights
 
@@ -254,6 +254,16 @@ tokenized_data = preprocessor.tokenize_dataset(dataset)  # HF DatasetDict
 - **Fallback**: If "TokenizersBackend" error, loads raw tokenizer from `tokenizer.json` using `tokenizers` library
 - Sets special tokens (pad, eos) from `tokenizer_config.json`
 - Returns: `PreTrainedTokenizer` or `PreTrainedTokenizerFast`
+
+#### `merge_and_save_model(model, tokenizer, adapter_path, output_path)` ⭐ **NEW**
+- Merges LoRA adapters with base model into a single complete model
+- Used after training to create deployment-ready single-file model
+- Steps:
+  1. Load base model (unquantized)
+  2. Load LoRA adapters from `adapter_path`
+  3. Call `merge_and_unload()` to merge weights
+  4. Save complete merged model to `output_path`
+- Returns: Merged model (ready for inference)
 
 **Tokenizer Loading Flow**:
 ```
@@ -266,11 +276,22 @@ AutoTokenizer.from_pretrained(path)
 **Example Usage**:
 ```python
 loader = ModelLoader()
-model = loader.load_base_model()      # For training
+
+# For training
+model = loader.load_base_model()      # Quantized 4-bit
 tokenizer = loader.load_tokenizer()   # Default: base model
-# OR for inference:
-tokenizer = loader.load_tokenizer(fine_tuned_path)
-model = loader.load_finetuned_model(fine_tuned_path)
+
+# After training: merge LoRA with base
+merged_model = loader.merge_and_save_model(
+    model=model,
+    tokenizer=tokenizer,
+    adapter_path="./models/fine-tunned/fake_news_detector",
+    output_path="./models/fine-tunned/fake_news_detector_merged"
+)
+
+# For inference with merged model
+tokenizer = loader.load_tokenizer(merged_model_path)
+model = AutoModelForCausalLM.from_pretrained(merged_model_path)
 ```
 
 ---
@@ -323,13 +344,15 @@ model = loader.load_finetuned_model(fine_tuned_path)
 
 **Class**: `FakeNewsPredictor`
 
-**Purpose**: Make predictions on new articles. **Reuses `ModelLoader` for consistency.**
+**Purpose**: Make predictions on new articles. **Reuses `ModelLoader` for consistency.** **Supports both merged model and LoRA adapters.**
 
 **Key Methods**:
-- `__init__(model_path=None)` → Loads tokenizer & model
+- `__init__(model_path=None, use_merged=True)` → Loads merged model by default, falls back to LoRA
 - `predict(title, text="")` → Returns dict with prediction, label, confidence
 - `predict_batch(articles)` → Predict multiple articles
 - `predict_csv(input_csv, output_csv)` → Batch predict from CSV file
+- `_load_merged_model()` → Load fully merged model (fast, single file)
+- `_load_lora_model()` → Load base + LoRA adapters (flexible, small size)
 
 **Prediction Pipeline**:
 1. Format input: `"Classify: {title}\nAnswer:"`
@@ -352,9 +375,13 @@ model = loader.load_finetuned_model(fine_tuned_path)
 
 **Example Usage**:
 ```python
-predictor = FakeNewsPredictor("./models/fine-tunned/fake_news_detector")
+# Load merged model (default, fast)
+predictor = FakeNewsPredictor()
 result = predictor.predict("Scientists discover aliens", "No text provided")
 print(f"Prediction: {result['label']} ({result['confidence']:.0%})")
+
+# Load with LoRA adapters (if merged not available)
+predictor = FakeNewsPredictor(use_merged=False)
 
 # Batch predict
 articles = [
@@ -362,6 +389,9 @@ articles = [
     {'title': 'Article 2', 'text': ''}
 ]
 results = predictor.predict_batch(articles)
+
+# Batch predict from CSV
+predictor.predict_csv("input.csv", "output.csv")
 ```
 
 ---
@@ -389,24 +419,42 @@ results = predictor.predict_batch(articles)
        - Save checkpoints every 100 steps
        - Eval every 100 steps
 
-6. Save model & tokenizer
-   └─ model.save_pretrained(PathConfig.OUTPUT_DIR)
-       tokenizer.save_pretrained(PathConfig.OUTPUT_DIR)
+6. Save LoRA adapters
+   └─ model.save_pretrained(PathConfig.MODEL_OUTPUT_DIR)
+       tokenizer.save_pretrained(PathConfig.MODEL_OUTPUT_DIR)
+
+7. Merge LoRA with base model
+   └─ ModelLoader.merge_and_save_model()
+       - Load base model
+       - Load LoRA adapters
+       - Merge weights
+       - Save as complete model
 ```
 
 **Files Created During Training**:
-- `models/fine-tunned/fake_news_detector/adapter_model.safetensors` — LoRA weights
-- `models/fine-tunned/fake_news_detector/tokenizer.json` — Tokenizer
-- `models/fine-tunned/fake_news_detector/tokenizer_config.json` — Tokenizer config
-- `models/fine-tunned/checkpoints/checkpoint-XXX/` — Periodic checkpoints
+
+*LoRA Adapters Only (lightweight, ~5MB)*:
+- `models/fine-tunned/fake_news_detector/adapter_model.safetensors`
+- `models/fine-tunned/fake_news_detector/tokenizer.json`
+- `models/fine-tunned/fake_news_detector/tokenizer_config.json`
+
+*Merged Model (complete, ~6GB)*:
+- `models/fine-tunned/fake_news_detector_merged/pytorch_model.bin` (or .safetensors)
+- `models/fine-tunned/fake_news_detector_merged/config.json`
+- `models/fine-tunned/fake_news_detector_merged/tokenizer.json`
+- All other config files
+
+*Checkpoints (periodic saves during training)*:
+- `models/fine-tunned/checkpoints/checkpoint-XXX/`
 
 ### Inference Pipeline (`run.py` or `FakeNewsPredictor`)
 
 ```
 1. Initialize predictor
-   └─ FakeNewsPredictor(model_path)
-       ├─ ModelLoader.load_tokenizer(path)  ← with fallback
-       └─ ModelLoader.load_finetuned_model(path)
+   ├─ Try: Load merged model (fast, single file)
+   │  └─ FakeNewsPredictor(use_merged=True)
+   └─ Fallback: Load base + LoRA adapters (if merged unavailable)
+      └─ FakeNewsPredictor(use_merged=False)
 
 2. Format & tokenize input
    └─ "Classify: {title}\nAnswer:"
@@ -420,6 +468,16 @@ results = predictor.predict_batch(articles)
 5. Return result
    └─ {'prediction': 1, 'label': 'Real', 'confidence': 0.9, ...}
 ```
+
+**Two Deployment Options**:
+
+| Aspect | Merged Model | LoRA Adapters |
+|--------|--------------|---------------|
+| **File size** | ~6GB (complete) | ~5MB (adapters only) |
+| **Inference speed** | Fast (single load) | Slower (load base + adapters) |
+| **Flexibility** | Fixed to one config | Can swap adapters |
+| **Setup** | Copy one directory | Need base model + adapters |
+| **Use case** | Production deployment | Research, multi-model serving |
 
 ---
 

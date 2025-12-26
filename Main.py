@@ -54,11 +54,26 @@ def main():
     
     
     print("\nSaving model...")
-    model.save_pretrained(PathConfig.OUTPUT_DIR)
-    tokenizer.save_pretrained(PathConfig.OUTPUT_DIR)
+    model.save_pretrained(PathConfig.MODEL_OUTPUT_DIR)
+    tokenizer.save_pretrained(PathConfig.MODEL_OUTPUT_DIR)
+    print(f"✓ LoRA adapters saved to: {PathConfig.MODEL_OUTPUT_DIR}")
+    
+    
+    print("\n" + "="*60)
+    print("MERGING LoRA ADAPTERS WITH BASE MODEL")
+    print("="*60)
+    model_loader = ModelLoader()
+    merged_model = model_loader.merge_and_save_model(
+        model=model,
+        tokenizer=tokenizer,
+        adapter_path=str(PathConfig.MODEL_OUTPUT_DIR),
+        output_path=str(PathConfig.MERGED_MODEL_DIR)
+    )
     
     print("\n✅ Training complete!")
-    print(f"Model saved to: {PathConfig.OUTPUT_DIR}")
+    print(f"\n📦 Available models:")
+    print(f"   - LoRA adapters: {PathConfig.MODEL_OUTPUT_DIR}")
+    print(f"   - Merged model:  {PathConfig.MERGED_MODEL_DIR}")
 
 if __name__ == "__main__":
     main()

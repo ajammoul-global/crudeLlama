@@ -1,7 +1,7 @@
 """Model loading for training and inference - REUSABLE!"""
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, PreTrainedTokenizerFast
-from peft import AutoPeftModelForCausalLM
+from peft import AutoPeftModelForCausalLM, PeftModel
 from config import ModelConfig
 
 class ModelLoader:
@@ -91,4 +91,50 @@ class ModelLoader:
 
         print("✓ Tokenizer loaded via AutoTokenizer!")
         return tokenizer
+    
+    def merge_and_save_model(self, model, tokenizer, adapter_path, output_path):
+        """
+        Merge LoRA adapters with base model and save as complete model
+        
+        Args:
+            model: Model with LoRA adapters applied
+            tokenizer: Tokenizer object
+            adapter_path (str): Path where LoRA adapters were saved
+            output_path (str): Path to save merged model
+        
+        Returns:
+            merged_model: Model with LoRA weights merged into base model
+        """
+        print(f"\nMerging LoRA adapters with base model...")
+        
+        try:
+            # Load the base model (without quantization for merging)
+            print("Loading base model for merging...")
+            base_model = AutoModelForCausalLM.from_pretrained(
+                self.config.MODEL_NAME,
+                device_map='auto',
+                torch_dtype=torch.float16,
+            )
+            
+            # Load LoRA adapters
+            print(f"Loading LoRA adapters from {adapter_path}...")
+            peft_model = PeftModel.from_pretrained(base_model, adapter_path)
+            
+            # Merge LoRA weights into base model
+            print("Merging weights...")
+            merged_model = peft_model.merge_and_unload()
+            
+            # Save merged model
+            print(f"Saving merged model to {output_path}...")
+            merged_model.save_pretrained(output_path)
+            tokenizer.save_pretrained(output_path)
+            
+            print(f"✅ Merged model saved to: {output_path}")
+            print(f"   Files: {list(__import__('pathlib').Path(output_path).glob('*'))[:5]}...")
+            
+            return merged_model
+            
+        except Exception as e:
+            print(f"❌ Error merging model: {e}")
+            raise
         
