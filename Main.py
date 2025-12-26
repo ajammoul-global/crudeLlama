@@ -18,7 +18,7 @@ def main():
     
     print_step(1, 5, "Loading model...")
     model_loader = ModelLoader()
-    model = model_loader.load_model()
+    model = model_loader.load_base_model()
     tokenizer = model_loader.load_tokenizer()
     print_memory_stats()
    
