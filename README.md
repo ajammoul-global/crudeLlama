@@ -1,175 +1,243 @@
 ---
-base_model: meta-llama/Llama-3.2-3B
+base_model: meta-llama/Llama-3.2-1B
 library_name: peft
 pipeline_tag: text-generation
 tags:
-- base_model:adapter:meta-llama/Llama-3.2-3B
+- base_model:adapter:meta-llama/Llama-3.2-1B
 - lora
 - transformers
+- fake-news-detection
 ---
 
-# Model Card for Model ID
+# Fake News Detector - Llama-3.2-1B Fine-tuned with LoRA
+
+Train a fake news detector on Kaggle with **automatic upload to Hugging Face Hub**. Simple, fast, and production-ready.
+
+## 🚀 Quick Start (5 minutes)
+
+### 1️⃣ Create Hugging Face Token
+Go to https://huggingface.co/settings/tokens → Create token
+
+### 2️⃣ Setup Kaggle
+- Open https://kaggle.com/code → Create notebook
+- Add dataset: "fake-news-dataset"
+- Add secrets (Settings ⚙️ → Secrets):
+  - `HF_TOKEN` = `hf_xxxxx...`
+  - `HF_REPO_ID` = `yourusername/fake-news-detector`
+
+### 3️⃣ Copy & Run
+Copy these 3 cells into your Kaggle notebook:
+
+**Cell 1:**
+```python
+!git clone https://github.com/ajammoul-global/crudeLlama.git
+%cd crudeLlama
+!pip install -q -r Requirements.txt
+```
+
+**Cell 2:**
+```python
+import os
+from kaggle_secrets import UserSecretsClient
+secrets = UserSecretsClient()
+os.environ["HF_TOKEN"] = secrets.get_secret("HF_TOKEN")
+os.environ["HF_REPO_ID"] = secrets.get_secret("HF_REPO_ID")
+print(f"✅ Ready to train!")
+```
+
+**Cell 3:**
+```python
+!python Main.py
+```
+
+### ✅ Done!
+Your model will automatically train and upload to Hugging Face Hub in ~50 minutes.
+
+---
+
+## � Documentation
+
+- **Quick Start:** [`KAGGLE_QUICK_START.md`](KAGGLE_QUICK_START.md) (5 min read)
+- **Detailed Guide:** [`KAGGLE_SETUP.md`](KAGGLE_SETUP.md) (15 min read)
+- **Complete Info:** [`README_KAGGLE.md`](README_KAGGLE.md) (30 min read)
+- **All Resources:** [`KAGGLE_RESOURCES.md`](KAGGLE_RESOURCES.md) (navigation)
+- **Visual Guide:** [`KAGGLE_VISUAL_GUIDE.md`](KAGGLE_VISUAL_GUIDE.md) (diagrams)
+- **Ready To Go:** [`KAGGLE_READY.md`](KAGGLE_READY.md) (summary)
+
+---
+
+## � Model Details
+
+- **Base Model:** meta-llama/Llama-3.2-1B
+- **Fine-tuning Method:** LoRA (Low-Rank Adaptation)
+- **Framework:** Hugging Face Transformers + PEFT
+- **Quantization:** 4-bit (BitsAndBytes)
+- **Task:** Fake News Detection (Binary Classification)
+- **License:** [Meta Llama License](https://huggingface.co/meta-llama/Llama-3.2-1B)
+
+## 🎯 Use Case
+
+This model detects whether news articles are real or fake. It's fine-tuned on the Fake and Real News Dataset with:
+- ✅ 200 fake articles
+- ✅ 200 real articles
+- ✅ 25 training epochs
+- ✅ LoRA adapters (~5MB)
+- ✅ Merged complete model (~6GB)
+
+## 🚀 Use in Production
+
+### Load from Hugging Face Hub
+```python
+from src.inference.FakeNewsPredictor import FakeNewsPredictor
+
+predictor = FakeNewsPredictor(
+    model_path="yourusername/fake-news-detector",
+    from_hub=True,
+    use_merged=True
+)
+
+result = predictor.predict(
+    title="Article Title",
+    text="Article content..."
+)
+print(result)  # {'prediction': 0, 'label': 'REAL', 'confidence': 0.95}
+```
+
+### Load with Transformers
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model = AutoModelForCausalLM.from_pretrained("yourusername/fake-news-detector")
+tokenizer = AutoTokenizer.from_pretrained("yourusername/fake-news-detector")
+```
+
+## 📊 Training Details
+
+- **Dataset:** Fake and Real News Dataset (Kaggle)
+- **Training Time:** ~40-50 minutes on Kaggle GPU
+- **Optimizer:** AdamW with learning rate 2e-4
+- **Batch Size:** 8
+- **Epochs:** 25
+- **Hardware:** Kaggle GPU (32GB, Nvidia P100/T4)
+
+## 🔄 Model Merging
 
-<!-- Provide a quick summary of what the model is/does. -->
+Two versions are saved after training:
 
+| Model | Size | Use Case |
+|-------|------|----------|
+| **Merged** | ~6GB | Production (single file, faster inference) |
+| **LoRA** | ~5MB | Research (flexible, base model required) |
 
+## 📚 Project Files
+
+### Key Directories
+```
+src/
+├─ data/          # Data loading & preprocessing
+├─ model/         # Model loading & LoRA
+├─ inference/     # Prediction pipeline
+├─ tunning/       # Training code
+└─ utils/         # Logging & memory utilities
 
-## Model Details
+config/
+├─ path.py        # Path configuration
+├─ model.py       # Model configuration
+└─ data.py        # Data configuration
 
-### Model Description
+models/
+├─ base/          # Base model (Llama-3.2-1B)
+└─ fine-tuned/    # Fine-tuned models
+```
 
-<!-- Provide a longer summary of what this model is. -->
+### Main Scripts
+- `Main.py` - Training orchestration (run this on Kaggle!)
+- `train_on_kaggle.py` - Kaggle wrapper
+- `run.py` - Single prediction from CLI
+- `test_kaggle_setup.py` - Verify environment
 
+## 🔧 Local Development
 
+### Install Dependencies
+```bash
+pip install -r Requirements.txt
+```
 
-- **Developed by:** [More Information Needed]
-- **Funded by [optional]:** [More Information Needed]
-- **Shared by [optional]:** [More Information Needed]
-- **Model type:** [More Information Needed]
-- **Language(s) (NLP):** [More Information Needed]
-- **License:** [More Information Needed]
-- **Finetuned from model [optional]:** [More Information Needed]
+### Train Locally
+```bash
+# With HF Hub upload (requires HF_TOKEN)
+export HF_TOKEN=hf_xxxxx...
+export HF_REPO_ID=yourusername/fake-news-detector
+python Main.py
 
-### Model Sources [optional]
+# Local only (no Hub upload)
+python Main.py
+```
 
-<!-- Provide the basic links for the model. -->
+### Test Predictions
+```bash
+python run.py "Article Title" "Article text..."
+```
 
-- **Repository:** [More Information Needed]
-- **Paper [optional]:** [More Information Needed]
-- **Demo [optional]:** [More Information Needed]
+## ⚙️ Configuration
 
-## Uses
+Edit `config/path.py` to customize:
 
-<!-- Address questions around how the model is intended to be used, including the foreseeable users of the model and those affected by the model. -->
+```python
+# Auto-detect Kaggle environment
+IS_KAGGLE = os.environ.get('KAGGLE_KERNEL_RUN_TYPE') is not None
 
-### Direct Use
+# Hugging Face Hub
+HF_TOKEN = os.environ.get("HF_TOKEN", None)
+HF_REPO_ID = os.environ.get("HF_REPO_ID", "ajammoul-global/fake-news-detector")
+PUSH_TO_HUB = HF_TOKEN is not None  # Auto-enable if token exists
+PRIVATE_REPO = False
 
-<!-- This section is for the model use without fine-tuning or plugging into a larger ecosystem/app. -->
+# Model paths
+MODEL_OUTPUT_DIR = OUTPUT_DIR / "fake_news_detector"           # LoRA
+MERGED_MODEL_DIR = OUTPUT_DIR / "fake_news_detector_merged"    # Complete
+```
 
-[More Information Needed]
+## 🛠️ Troubleshooting
 
-### Downstream Use [optional]
+| Issue | Solution |
+|-------|----------|
+| CUDA out of memory | Already optimized with 4-bit quantization. Check GPU. |
+| HF_TOKEN not found | Set in Kaggle Secrets (exact name: `HF_TOKEN`) |
+| Import errors | Run: `python test_kaggle_setup.py` |
+| Slow training | Normal! ~1 sample/sec is expected. |
+| Hub upload fails | Check token permissions (repo.content.write) |
 
-<!-- This section is for the model use when fine-tuned for a task, or when plugged into a larger ecosystem/app -->
+For more: See [`KAGGLE_SETUP.md`](KAGGLE_SETUP.md) troubleshooting section.
 
-[More Information Needed]
+## 📞 Support
 
-### Out-of-Scope Use
+- **Quick answers:** [`KAGGLE_QUICK_START.md`](KAGGLE_QUICK_START.md)
+- **Step-by-step:** [`KAGGLE_SETUP.md`](KAGGLE_SETUP.md)
+- **Full reference:** [`PROJECT_DOCUMENTATION.md`](PROJECT_DOCUMENTATION.md)
 
-<!-- This section addresses misuse, malicious use, and uses that the model will not work well for. -->
+## 📄 License
 
-[More Information Needed]
+This project uses Meta Llama 3.2 (1B) as the base model under the [Meta Llama License](https://huggingface.co/meta-llama/Llama-3.2-1B).
 
-## Bias, Risks, and Limitations
+## 🎓 Citation
 
-<!-- This section is meant to convey both technical and sociotechnical limitations. -->
+If you use this model, please cite:
 
-[More Information Needed]
+```bibtex
+@software{fake_news_detector_2025,
+  title={Fake News Detector - Llama-3.2-1B Fine-tuned},
+  author={Your Name},
+  year={2025},
+  howpublished={\url{https://huggingface.co/yourusername/fake-news-detector}},
+  note={Fine-tuned on Fake and Real News Dataset}
+}
+```
 
-### Recommendations
+---
 
-<!-- This section is meant to convey recommendations with respect to the bias, risk, and technical limitations. -->
+**Ready to train?** Start with [`KAGGLE_QUICK_START.md`](KAGGLE_QUICK_START.md)! 🚀
 
-Users (both direct and downstream) should be made aware of the risks, biases and limitations of the model. More information needed for further recommendations.
-
-## How to Get Started with the Model
-
-Use the code below to get started with the model.
-
-[More Information Needed]
-
-## Training Details
-
-### Training Data
-
-<!-- This should link to a Dataset Card, perhaps with a short stub of information on what the training data is all about as well as documentation related to data pre-processing or additional filtering. -->
-
-[More Information Needed]
-
-### Training Procedure
-
-<!-- This relates heavily to the Technical Specifications. Content here should link to that section when it is relevant to the training procedure. -->
-
-#### Preprocessing [optional]
-
-[More Information Needed]
-
-
-#### Training Hyperparameters
-
-- **Training regime:** [More Information Needed] <!--fp32, fp16 mixed precision, bf16 mixed precision, bf16 non-mixed precision, fp16 non-mixed precision, fp8 mixed precision -->
-
-#### Speeds, Sizes, Times [optional]
-
-<!-- This section provides information about throughput, start/end time, checkpoint size if relevant, etc. -->
-
-[More Information Needed]
-
-## Evaluation
-
-<!-- This section describes the evaluation protocols and provides the results. -->
-
-### Testing Data, Factors & Metrics
-
-#### Testing Data
-
-<!-- This should link to a Dataset Card if possible. -->
-
-[More Information Needed]
-
-#### Factors
-
-<!-- These are the things the evaluation is disaggregating by, e.g., subpopulations or domains. -->
-
-[More Information Needed]
-
-#### Metrics
-
-<!-- These are the evaluation metrics being used, ideally with a description of why. -->
-
-[More Information Needed]
-
-### Results
-
-[More Information Needed]
-
-#### Summary
-
-
-
-## Model Examination [optional]
-
-<!-- Relevant interpretability work for the model goes here -->
-
-[More Information Needed]
-
-## Environmental Impact
-
-<!-- Total emissions (in grams of CO2eq) and additional considerations, such as electricity usage, go here. Edit the suggested text below accordingly -->
-
-Carbon emissions can be estimated using the [Machine Learning Impact calculator](https://mlco2.github.io/impact#compute) presented in [Lacoste et al. (2019)](https://arxiv.org/abs/1910.09700).
-
-- **Hardware Type:** [More Information Needed]
-- **Hours used:** [More Information Needed]
-- **Cloud Provider:** [More Information Needed]
-- **Compute Region:** [More Information Needed]
-- **Carbon Emitted:** [More Information Needed]
-
-## Technical Specifications [optional]
-
-### Model Architecture and Objective
-
-[More Information Needed]
-
-### Compute Infrastructure
-
-[More Information Needed]
-
-#### Hardware
-
-[More Information Needed]
-
-#### Software
 
 [More Information Needed]
 

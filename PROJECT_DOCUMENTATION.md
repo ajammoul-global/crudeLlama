@@ -1,18 +1,25 @@
-# Crude Llama: Fake News Detection with LLaMA 3.2
+# Fake News Detector: Fine-tuned Llama-3.2 with LoRA
 
 ## 📋 Project Overview
 
-**Crude Llama** is a fine-tuned LLaMA 3.2 (3B) model specifically trained for fake news detection using QLoRA (Quantized Low-Rank Adaptation). The project includes:
-- **Training pipeline**: Fine-tune base model on fake news dataset
-- **Inference pipeline**: Make predictions on new articles
-- **Modular architecture**: Reusable components for model loading, data processing, and prediction
+**Fake News Detector** is a production-ready fine-tuned LLaMA 3.2 (3B) model for detecting fake news articles, trained with LoRA (Low-Rank Adaptation) and optimized for deployment on **Kaggle** with automatic upload to **Hugging Face Hub**.
 
-### Key Technologies
-- **Base Model**: `meta-llama/Llama-3.2-3B`
-- **Fine-tuning**: PEFT (LoRA adapters)
-- **Quantization**: 4-bit quantization via BitsAndBytes
+### Key Features
+- ✅ **Train on Kaggle**: Automatic environment detection + secret management
+- ✅ **Auto-upload to Hub**: Model automatically pushes to HF after training
+- ✅ **Model Merging**: Creates both LoRA (~5MB) and merged (~6GB) versions
+- ✅ **Two Deployment Options**: Load merged model or base + LoRA adapters
+- ✅ **Tokenizer Fallback**: Handles edge cases with TokenizersBackend
+- ✅ **Production Ready**: Works on Kaggle, Colab, local, or cloud
+
+### Core Technologies
+- **Base Model**: `meta-llama/Llama-3.2-1B` (lightweight, 1B parameters)
+- **Fine-tuning**: PEFT LoRA (Low-Rank Adaptation)
+- **Quantization**: 4-bit (BitsAndBytes) for GPU memory optimization
 - **Framework**: PyTorch + Transformers + PEFT
-- **Dataset**: Fake News Dataset (Kaggle)
+- **Deployment**: Hugging Face Hub (automatic upload)
+- **Dataset**: Fake News Dataset (200 fake + 200 real articles)
+- **Training**: Optimized for Kaggle 32GB GPU with gradient accumulation
 
 ---
 
@@ -114,7 +121,7 @@ from config.path import PathConfig
 
 ```python
 class ModelConfig:
-    MODEL_NAME = "meta-llama/Llama-3.2-3B"
+    MODEL_NAME = "meta-llama/Llama-3.2-1B"  # Lightweight 1B model
     LOAD_IN_4BIT = True
     QUANT_TYPE = "nf4"
     COMPUTE_DTYPE = "float16"
@@ -131,9 +138,10 @@ class ModelConfig:
 ```
 
 **Key Settings**:
-- `LOAD_IN_4BIT`: Quantize model to 4-bit to fit on limited GPU memory
+- `LOAD_IN_4BIT`: Quantize model to 4-bit (fits in ~1GB GPU memory vs ~6GB)
 - `LORA_R=8`: Rank of LoRA adapters (low-rank approximation)
 - `MAX_SEQ_LENGTH=256`: Truncate inputs to 256 tokens
+- **Model Size**: 1B parameters (vs 3B previously) for faster training and inference
 
 ### `config/data.py` — Dataset Configuration
 **Purpose**: Control data sampling, preprocessing, and labels.
@@ -165,18 +173,50 @@ class TrainingConfig:
 - Batch size = 1 + gradient accumulation steps = 4 → effective batch size of 4
 - `paged_adamw_8bit` offloads optimizer state to CPU to save GPU memory
 
-### `config/path.py` — File Paths
-**Purpose**: Centralize all file paths (data, models, outputs).
+### `config/path.py` — File Paths & Kaggle/Hub Configuration
+**Purpose**: Centralize all file paths (data, models, outputs) + configure HF Hub integration + detect Kaggle environment.
 
 ```python
-class PathConfig:
-    FAKE_CSV = r"C:\Users\lenovo\Desktop\crudeLlama\data\raw\Fake.csv"
-    TRUE_CSV = r"C:\Users\lenovo\Desktop\crudeLlama\data\raw\True.csv"
-    OUTPUT_DIR = r"C:\Users\lenovo\Desktop\crudeLlama\models\fine-tunned\fake_news_detector"
-    CHECKPOINT_DIR = r"C:\Users\lenovo\Desktop\crudeLlama\models\fine-tunned\checkpoints"
+import os
+
+# Auto-detect Kaggle environment
+IS_KAGGLE = os.path.exists('/kaggle/working')
+
+# Paths (auto-adjust for Kaggle)
+if IS_KAGGLE:
+    BASE_DIR = '/kaggle/working'
+    DATA_DIR = '/kaggle/input/fake-news-dataset'  # Dataset uploaded to Kaggle
+else:
+    BASE_DIR = r"C:\Users\lenovo\Desktop\crudeLlama"
+    DATA_DIR = os.path.join(BASE_DIR, "data/raw")
+
+FAKE_CSV = os.path.join(DATA_DIR, "Fake.csv")
+TRUE_CSV = os.path.join(DATA_DIR, "True.csv")
+OUTPUT_DIR = os.path.join(BASE_DIR, "models/fine-tunned/fake_news_detector")
+CHECKPOINT_DIR = os.path.join(BASE_DIR, "models/fine-tunned/checkpoints")
+
+# Hugging Face Hub Configuration
+HF_TOKEN = os.getenv("HF_TOKEN", "")  # Set in Kaggle secrets
+HF_REPO_ID = "your-username/fake-news-detector"  # Update with your username
+PUSH_TO_HUB = bool(HF_TOKEN)  # Auto-enable if token exists
+
+# Kaggle Auto-Setup
+if IS_KAGGLE and HF_TOKEN:
+    from huggingface_hub import login
+    login(token=HF_TOKEN)
 ```
 
-**Note**: Use raw strings (`r"..."`) for Windows paths to avoid escape sequence issues.
+**Key Features**:
+- 🟠 **IS_KAGGLE**: Auto-detects Kaggle environment (checks `/kaggle/working`)
+- 📁 **Path auto-adjustment**: Uses `/kaggle/working` on Kaggle, local paths otherwise
+- 🔑 **HF_TOKEN**: Reads from Kaggle secrets (won't print in output)
+- 🚀 **PUSH_TO_HUB**: Auto-enables when token exists (no manual config needed)
+- 📤 **Auto-login**: Logs into HF Hub on Kaggle if token present
+
+**Setup on Kaggle**:
+1. Create a Kaggle secret named `HF_TOKEN` with your HF token value
+2. Code automatically detects it and logs in
+3. Model uploads to Hub after training completes
 
 ---
 
@@ -401,34 +441,67 @@ predictor.predict_csv("input.csv", "output.csv")
 ### Training Pipeline (`Main.py`)
 
 ```
-1. Load base model (quantized 4-bit)
+1. ✅ Detect Environment (Kaggle vs Local)
+   ├─ Display: 🟠 KAGGLE or 💻 LOCAL
+   └─ Auto-adjust paths, enable GPU memory optimizations for Kaggle
+
+2. Load base model (quantized 4-bit)
    └─ ModelLoader.load_base_model()
 
-2. Apply LoRA adapters
+3. Apply LoRA adapters
    └─ LoRAManager.apply_lora(model)
 
-3. Load dataset
+4. Load dataset
    └─ DataLoader.load_data()  → train & test splits
 
-4. Preprocess & tokenize
+5. Preprocess & tokenize
    └─ DataPreprocessor.tokenize_dataset()
 
-5. Train with HF Trainer
+6. Train with HF Trainer
    └─ ModelTrainer.train(train_data, test_data)
        - 2 epochs
        - Save checkpoints every 100 steps
        - Eval every 100 steps
+       - 🟠 Kaggle: Optimized batch size & gradient accumulation
 
-6. Save LoRA adapters
-   └─ model.save_pretrained(PathConfig.MODEL_OUTPUT_DIR)
-       tokenizer.save_pretrained(PathConfig.MODEL_OUTPUT_DIR)
+7. Save LoRA adapters locally
+   └─ model.save_pretrained(OUTPUT_DIR)
 
-7. Merge LoRA with base model
+8. ⭐ Merge LoRA with base model
    └─ ModelLoader.merge_and_save_model()
        - Load base model
        - Load LoRA adapters
-       - Merge weights
+       - Merge weights into single model
        - Save as complete model
+
+9. ⭐ Auto-upload to Hugging Face Hub (if token configured)
+   └─ Merged model: username/fake-news-detector
+   └─ LoRA adapters: username/fake-news-detector-lora
+   └─ All tokenizer files + README
+```
+
+**Kaggle Automatic Features**:
+- 🔍 Auto-detects Kaggle environment from `/kaggle/working`
+- 🔑 Auto-logs into HF Hub using Kaggle secret `HF_TOKEN`
+- 📤 Auto-pushes model after training completes
+- ✅ Shows environment & Hub config at startup
+- 📊 Displays training progress with GPU stats
+
+**Output**:
+```
+============================================================
+Environment Detected: 🟠 KAGGLE
+Hub Configuration: ENABLED
+  - Repo: username/fake-news-detector
+  - Token: ••••••••••••••••••
+============================================================
+...training...
+✅ Training complete!
+✅ Model merged successfully
+✅ Models uploaded to Hub:
+   - Merged: https://huggingface.co/username/fake-news-detector
+   - LoRA: https://huggingface.co/username/fake-news-detector-lora
+============================================================
 ```
 
 **Files Created During Training**:
@@ -483,15 +556,65 @@ predictor.predict_csv("input.csv", "output.csv")
 
 ## 📝 Entry Points & Usage
 
-### 1. Training: `Main.py`
+### 🟠 **NEW**: Training on Kaggle with Automatic Hub Upload
+
+**Why Kaggle?**
+- ✅ Free 32GB GPU (T4 or P100)
+- ✅ No setup required (libraries pre-installed)
+- ✅ Auto-logout on finish (no hanging processes)
+- ✅ Built-in notebook environment
+
+**Quick Setup**:
+1. Go to https://www.kaggle.com/settings/account
+2. Create a new notebook
+3. Copy code from `KAGGLE_QUICK_START.md`
+4. Add your HF token as a Kaggle secret (name it `HF_TOKEN`)
+5. Run the notebook!
+
+**What Happens Automatically**:
+- Detects Kaggle environment
+- Reads your HF token from Kaggle secrets
+- Trains the model
+- Merges LoRA with base model
+- **Uploads everything to your HF Hub account**
+- Shows Hub URLs at finish
+
+**See These Guides**:
+- 📄 `KAGGLE_QUICK_START.md` - Start here (5 minutes)
+- 📄 `KAGGLE_SETUP.md` - Detailed walkthrough
+- 📄 `KAGGLE_CHECKLIST.md` - Pre-training checklist
+- 📄 `KAGGLE_RESOURCES.md` - Navigation guide
+
+---
+
+### 1. Training: `Main.py` (Local or Kaggle)
+
+**Local Training**:
 ```bash
 python Main.py
 ```
+
+**Kaggle Training** (Recommended):
+- Use `KAGGLE_QUICK_START.md` for copy-paste notebook code
+- Add `HF_TOKEN` as Kaggle secret
+- Run and auto-upload to Hub!
+
 **What it does**: 
-- Loads base model + applies LoRA
-- Loads data + preprocesses
-- Trains for 2 epochs
-- Saves fine-tuned model to `models/fine-tunned/fake_news_detector/`
+- 🔍 Auto-detects Kaggle vs local environment
+- 📥 Loads base model + applies LoRA
+- 📊 Loads data + preprocesses
+- 🔄 Trains for 2 epochs
+- 💾 Saves LoRA adapters locally
+- 🔗 **Merges LoRA with base model**
+- 📤 **Auto-uploads to Hugging Face Hub** (if token configured)
+- 🟠 **Kaggle-specific**: Auto-detects secrets, optimized batch sizing
+
+**Output**:
+- Local: `models/fine-tunned/fake_news_detector/` (LoRA) + `fake_news_detector_merged/` (merged)
+- Hub (automatic on Kaggle):
+  - `username/fake-news-detector` (merged model)
+  - `username/fake-news-detector-lora` (LoRA adapters)
+- Both are accessible from any notebook: Kaggle, Colab, local
 
 ---
 
@@ -503,6 +626,11 @@ python run.py "Article title" "Optional article text"
 ```bash
 python run.py "Scientists discover aliens on Mars"
 ```
+**What it does**:
+- Loads merged model from local disk (or Hub if configured)
+- Predicts on input article
+- Prints prediction + confidence
+
 **Output**:
 ```
 Loading model...
@@ -514,6 +642,16 @@ PREDICTION RESULT
 Title: Scientists discover aliens on Mars
 → Prediction: Fake
 → Confidence: 90%
+```
+
+**Load from Hub**:
+```bash
+python -c "
+from src.inference.FakeNewsPredictor import FakeNewsPredictor
+p = FakeNewsPredictor('your-username/fake-news-detector', from_hub=True)
+result = p.predict('Article title')
+print(result)
+"
 ```
 
 ---
@@ -540,6 +678,65 @@ Test 1:
 
 Quick Test Accuracy: 100% (4/4)
 ```
+
+---
+
+## 🌐 Using Models from Hugging Face Hub
+
+### Setup (One-time)
+
+**On Local Machine**:
+1. Get HF token: https://huggingface.co/settings/tokens
+2. Authenticate: `huggingface-cli login`
+3. Edit `config/path.py`:
+   ```python
+   HF_REPO_ID = "your-username/fake-news-detector"
+   PUSH_TO_HUB = True
+   ```
+4. Run `Main.py` - models upload automatically after training
+
+**On Kaggle** (Recommended):
+1. Add HF token as Kaggle secret (name: `HF_TOKEN`)
+2. Code auto-detects it and uploads (no config needed!)
+3. See `KAGGLE_QUICK_START.md` for copy-paste notebook code
+
+### After Training
+Models automatically uploaded to:
+- **Merged**: `https://huggingface.co/your-username/fake-news-detector` (~6GB, complete model)
+- **LoRA**: `https://huggingface.co/your-username/fake-news-detector-lora` (~5MB, adapters only)
+
+### Load from Hub (Any Environment)
+```python
+from src.inference.FakeNewsPredictor import FakeNewsPredictor
+
+# Load merged model from Hub
+predictor = FakeNewsPredictor(
+    model_path="your-username/fake-news-detector",
+    from_hub=True,
+    use_merged=True
+)
+
+result = predictor.predict("Article title")
+print(f"Prediction: {result['label']}")
+```
+
+### Deploy in Production
+```python
+# Load once, reuse for multiple predictions
+predictor = FakeNewsPredictor("your-username/fake-news-detector", from_hub=True)
+
+# Serve predictions via API or app
+results = predictor.predict_batch([
+    {"title": "Article 1"},
+    {"title": "Article 2"}
+])
+```
+
+### Full HF Hub Guide
+See `HF_HUB_GUIDE.md` for detailed setup, troubleshooting, and advanced usage.
+
+### Full Kaggle Integration Guide
+See `KAGGLE_RESOURCES.md` for navigation to all Kaggle-specific guides (KAGGLE_QUICK_START.md, KAGGLE_SETUP.md, etc.)
 
 ---
 
@@ -705,6 +902,23 @@ For questions or issues:
 
 ---
 
-**Last Updated**: December 23, 2025
-**Base Model**: meta-llama/Llama-3.2-3B
-**Framework**: PyTorch + HF Transformers + PEFT
+## 🎯 Quick Links
+
+| Task | File/Link |
+|------|-----------|
+| **Train on Kaggle** | `KAGGLE_QUICK_START.md` 🟠 START HERE |
+| **Detailed Kaggle Setup** | `KAGGLE_SETUP.md` |
+| **Pre-training Checklist** | `KAGGLE_CHECKLIST.md` |
+| **All Kaggle Guides** | `KAGGLE_RESOURCES.md` |
+| **Hub Integration Details** | `HF_HUB_GUIDE.md` |
+| **Model Merging Details** | `MERGE_IMPLEMENTATION.md` |
+| **Train Locally** | `python Main.py` |
+| **Make Predictions** | `python run.py "Article title"` |
+| **Quick Test** | `python testing/test.py` |
+
+---
+
+**Last Updated**: December 26, 2025
+**Base Model**: meta-llama/Llama-3.2-1B (1B parameters, lightweight)
+**Framework**: PyTorch + HF Transformers + PEFT + BitsAndBytes
+**Key Feature**: 🟠 Automatic Kaggle + Hub integration (no manual config needed!)

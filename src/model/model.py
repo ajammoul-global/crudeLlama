@@ -2,7 +2,7 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, PreTrainedTokenizerFast
 from peft import AutoPeftModelForCausalLM, PeftModel
-from config import ModelConfig
+from config import ModelConfig, PathConfig
 
 class ModelLoader:
     """
@@ -137,4 +137,68 @@ class ModelLoader:
         except Exception as e:
             print(f"❌ Error merging model: {e}")
             raise
+    
+    def push_to_hub(self, model_path, repo_name, token=None, private=False, model_type="merged"):
+        """
+        Push model and tokenizer to Hugging Face Hub
         
+        Args:
+            model_path (str): Path to model to upload
+            repo_name (str): HF repo name (format: "username/repo-name")
+            token (str): HF token (if not set via environment)
+            private (bool): Make repo private
+            model_type (str): "merged" or "lora" (for commit messages)
+        
+        Returns:
+            str: URL of uploaded model on HF Hub
+        """
+        from huggingface_hub import login, HfApi
+        
+        try:
+            # Authenticate
+            if token:
+                login(token=token)
+            elif PathConfig.HF_TOKEN:
+                login(token=PathConfig.HF_TOKEN)
+            else:
+                print("⚠️  No HF_TOKEN provided. Trying to use cached credentials...")
+            
+            print(f"\n{'='*60}")
+            print(f"Uploading {model_type} model to Hugging Face Hub")
+            print(f"{'='*60}")
+            
+            # Load model and tokenizer
+            print(f"Loading model from {model_path}...")
+            model = AutoModelForCausalLM.from_pretrained(model_path)
+            tokenizer = AutoTokenizer.from_pretrained(model_path)
+            
+            # Push to Hub
+            print(f"Pushing to Hub: {repo_name}...")
+            model.push_to_hub(
+                repo_name,
+                private=private,
+                commit_message=f"Upload {model_type} fake-news-detector model"
+            )
+            tokenizer.push_to_hub(
+                repo_name,
+                private=private,
+                commit_message=f"Upload {model_type} tokenizer"
+            )
+            
+            hub_url = f"https://huggingface.co/{repo_name}"
+            print(f"\n✅ Model successfully uploaded to Hub!")
+            print(f"   URL: {hub_url}")
+            print(f"   Repo: {repo_name}")
+            print(f"   Private: {private}")
+            
+            return hub_url
+            
+        except Exception as e:
+            print(f"❌ Error uploading to Hub: {e}")
+            print("   Make sure:")
+            print("   1. HF_TOKEN is set (huggingface-cli login)")
+            print("   2. Repo exists on HF Hub")
+            print("   3. You have write access to the repo")
+            raise
+        
+

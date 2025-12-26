@@ -9,25 +9,32 @@ class FakeNewsPredictor:
     Make predictions on new articles
     Uses ModelLoader for consistency with training
     Loads merged model by default (LoRA + base model combined)
+    Can load from local disk or Hugging Face Hub
     """
     
-    def __init__(self, model_path=None, use_merged=True):
+    def __init__(self, model_path=None, use_merged=True, from_hub=False):
         """
         Initialize predictor
         
         Args:
             model_path: Path to trained model (default: merged model)
+                       Can be local path or HF repo name (e.g., "username/repo-name")
             use_merged: If True, load merged model; if False, load LoRA adapters
+            from_hub: If True, treat model_path as HF repo name; if False, treat as local path
         """
         if model_path is None:
             # Use merged model by default (faster, single file)
             self.model_path = str(PathConfig.MERGED_MODEL_DIR)
+            from_hub = False
             use_merged = True
         else:
             self.model_path = model_path
         
         print(f"Loading predictor from: {self.model_path}")
         print(f"Mode: {'Merged model' if use_merged else 'LoRA adapters'}")
+        print(f"Source: {'Hugging Face Hub' if from_hub else 'Local disk'}")
+        
+        self.from_hub = from_hub
         
         if use_merged:
             # Load merged model directly (no LoRA needed)
@@ -41,7 +48,10 @@ class FakeNewsPredictor:
     def _load_merged_model(self):
         """Load fully merged model (no LoRA)"""
         print(f"Loading tokenizer from {self.model_path}...")
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.model_path,
+            trust_remote_code=True
+        )
         self.tokenizer.pad_token = self.tokenizer.eos_token
         
         print(f"Loading merged model from {self.model_path}...")
@@ -49,6 +59,7 @@ class FakeNewsPredictor:
             self.model_path,
             device_map='auto',
             torch_dtype=torch.float16,
+            trust_remote_code=True
         )
         self.model.eval()
     
