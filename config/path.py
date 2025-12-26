@@ -22,7 +22,7 @@ class PathConfig:
     # Your HuggingFace repo name (format: "username/repo-name")
     # Example: "ajammoul-global/fake-news-detector"
     # For Kaggle: Set via Secrets (HF_REPO_ID)
-    HF_REPO_ID = os.environ.get("HF_REPO_ID", "ajammoul-global/fake-news-detector")
+    HF_REPO_ID = os.environ.get("HF_REPO_ID", "Ali-jammoul/fake-news-detector")
     
     # HF token (get from: https://huggingface.co/settings/tokens)
     # For Kaggle: Set via Kaggle Settings → Secrets as "HF_TOKEN"
