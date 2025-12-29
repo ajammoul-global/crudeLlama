@@ -11,23 +11,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.inference.FakeNewsPredictor import FakeNewsPredictor
-from config import PathConfig
 
 def quick_test():
-    # Try merged model first, fall back to LoRA adapters
-    try:
-        print("Attempting to load merged model...")
-        predictor = FakeNewsPredictor(use_merged=True)
-    except Exception as e:
-        print(f"Merged model not found, falling back to LoRA adapters: {e}")
-        try:
-            predictor = FakeNewsPredictor(
-                model_path=str(PathConfig.MODEL_OUTPUT_DIR),
-                use_merged=False
-            )
-        except Exception as e2:
-            print(f"Error loading model: {e2}")
-            return
+    predictor = FakeNewsPredictor("./models/fine-tuned/fake_news_detector")
     
     # Test cases
     test_cases = [
@@ -39,7 +25,7 @@ def quick_test():
     
     correct = 0
     for i, case in enumerate(test_cases):
-        result = predictor.predict(case["title"], case.get("text", ""))
+        result = predictor.predict(case)
         is_correct = result['prediction'] == case['label']
         correct += is_correct
         

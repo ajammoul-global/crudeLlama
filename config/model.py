@@ -5,7 +5,7 @@ class ModelConfig:
     """Model hyperparameters"""
     
     # Model selection
-    MODEL_NAME = "meta-llama/Llama-3.2-3B"
+    MODEL_NAME = "meta-llama/Llama-3.2-1B"
     
     # Quantization
     LOAD_IN_4BIT = True

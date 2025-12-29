@@ -9,7 +9,7 @@ class TrainingConfig:
     # Batch sizes
     BATCH_SIZE_TRAIN = 1
     BATCH_SIZE_EVAL = 1
-    GRADIENT_ACCUMULATION_STEPS = 8
+    GRADIENT_ACCUMULATION_STEPS = 4
     
     # Learning
     LEARNING_RATE = 2e-4
@@ -17,7 +17,7 @@ class TrainingConfig:
     
     # Optimization
     FP16 = True
-    GRADIENT_CHECKPOINTING = False  # Disable for GPU compatibility (CUDA/cuBLAS issues)
+    GRADIENT_CHECKPOINTING = True
     OPTIMIZER = "paged_adamw_8bit"
     
     # Logging
