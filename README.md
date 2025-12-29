@@ -1,207 +1,306 @@
----
-base_model: meta-llama/Llama-3.2-3B
-library_name: peft
-pipeline_tag: text-generation
-tags:
-- base_model:adapter:meta-llama/Llama-3.2-3B
-- lora
-- transformers
----
+# Fake News Detector - Docker Setup Guide
 
-# Model Card for Model ID
+A production-ready fake news detection system using Meta's Llama-3.2-1B model with LoRA fine-tuning.
 
-<!-- Provide a quick summary of what the model is/does. -->
+## 📋 Prerequisites
 
+- Docker & Docker Compose installed
+- 8GB+ RAM available
+- GPU support (recommended for faster training)
+- Git installed
+- Kaggle API key (for Kaggle notebook setup)
 
+## 🚀 Quick Start - Local Docker
 
-## Model Details
+### 1. Clone from GitHub
 
-### Model Description
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/crudeLlama.git
+cd crudeLlama
 
-<!-- Provide a longer summary of what this model is. -->
+# Create and activate virtual environment (optional)
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
 
+### 2. Install Dependencies
 
+```bash
+# Install required packages
+pip install -r Requirements.txt
+```
 
-- **Developed by:** [More Information Needed]
-- **Funded by [optional]:** [More Information Needed]
-- **Shared by [optional]:** [More Information Needed]
-- **Model type:** [More Information Needed]
-- **Language(s) (NLP):** [More Information Needed]
-- **License:** [More Information Needed]
-- **Finetuned from model [optional]:** [More Information Needed]
+### 3. Build and Run Docker Container
 
-### Model Sources [optional]
+```bash
+# Build the image
+docker build -t fake-news-detector .
 
-<!-- Provide the basic links for the model. -->
+# Run the container
+docker compose up --build
+```
 
-- **Repository:** [More Information Needed]
-- **Paper [optional]:** [More Information Needed]
-- **Demo [optional]:** [More Information Needed]
+Your application will be available at `http://localhost:8000`.
 
-## Uses
+## 🏋️ Training the Model Locally
 
-<!-- Address questions around how the model is intended to be used, including the foreseeable users of the model and those affected by the model. -->
+### Setup
 
-### Direct Use
+```bash
+# Clone repository
+git clone https://github.com/yourusername/crudeLlama.git
+cd crudeLlama
 
-<!-- This section is for the model use without fine-tuning or plugging into a larger ecosystem/app. -->
+# Install dependencies
+pip install -r Requirements.txt
+```
 
-[More Information Needed]
+### Training Script
 
-### Downstream Use [optional]
+```bash
+# Run the main training pipeline
+python Main.py
+```
 
-<!-- This section is for the model use when fine-tuned for a task, or when plugged into a larger ecosystem/app -->
+The training pipeline automatically:
+- ✅ Loads the base Llama-3.2-1B model
+- ✅ Applies LoRA adapters for memory efficiency
+- ✅ Preprocesses the fake news dataset
+- ✅ Fine-tunes the model
+- ✅ Merges weights and uploads to Hugging Face Hub
 
-[More Information Needed]
+## 📓 Kaggle Notebook Setup
 
-### Out-of-Scope Use
+### Step 1: Create a New Kaggle Notebook
 
-<!-- This section addresses misuse, malicious use, and uses that the model will not work well for. -->
+1. Go to [Kaggle.com](https://www.kaggle.com)
+2. Click "Code" → "New Notebook"
+3. Select "Notebook" as the environment
 
-[More Information Needed]
+### Step 2: Set Up the Environment
 
-## Bias, Risks, and Limitations
+Copy and paste this code in your first cell:
 
-<!-- This section is meant to convey both technical and sociotechnical limitations. -->
+```python
+# Install required packages
+!pip install transformers peft bitsandbytes torch accelerate datasets -q
 
-[More Information Needed]
+# Clone the repository
+!git clone https://github.com/yourusername/crudeLlama.git
+%cd crudeLlama
+```
 
-### Recommendations
+### Step 3: Load and Explore Data
 
-<!-- This section is meant to convey recommendations with respect to the bias, risk, and technical limitations. -->
+```python
+import os
+import pandas as pd
+from src.data.loader import DataLoader
 
-Users (both direct and downstream) should be made aware of the risks, biases and limitations of the model. More information needed for further recommendations.
+# Load the dataset
+data_loader = DataLoader()
+dataset = data_loader.load_data()
+
+# Preview the data
+print(f"Dataset shape: {dataset['train'].shape}")
+print(dataset['train'].head())
+```
+
+### Step 4: Train the Model on Kaggle
+
+```python
+import torch
+from src.data.loader import DataLoader
+from src.data.preprocess import DataPreprocessor
+from src.model.model import ModelLoader
+from src.model.lora import LoRAManager
+from src.tunning.tune import ModelTrainer
+from src.utils.memory import clear_memory, print_memory_stats
+from src.utils.logger import print_section, print_step
+
+print_section("FAKE NEWS DETECTION - TRAINING ON KAGGLE")
+
+# Step 1: Load model
+print_step(1, 5, "Loading model...")
+model_loader = ModelLoader()
+model = model_loader.load_base_model()
+tokenizer = model_loader.load_tokenizer()
+print_memory_stats()
+
+# Step 2: Apply LoRA
+print_step(2, 5, "Applying LoRA...")
+lora_manager = LoRAManager()
+model = lora_manager.apply_lora(model)
+
+# Step 3: Load data
+print_step(3, 5, "Loading data...")
+data_loader = DataLoader()
+dataset = data_loader.load_data()
+
+# Step 4: Preprocess
+print_step(4, 5, "Preprocessing data...")
+preprocessor = DataPreprocessor(tokenizer)
+tokenized_data = preprocessor.tokenize_dataset(dataset)
+
+clear_memory()
+
+# Step 5: Train
+print_step(5, 5, "Training model...")
+trainer_manager = ModelTrainer(model, tokenizer)
+trainer = trainer_manager.train(tokenized_data)
+
+print("✅ Training completed successfully!")
+```
+
+### Step 5: Run Inference
+
+```python
+from src.inference.FakeNewsPredictor import FakeNewsPredictor
+
+# Load the trained model
+predictor = FakeNewsPredictor()
+
+# Make predictions
+test_articles = [
+    "Breaking news: Scientists discover new species",
+    "Celebrity claims water cures all diseases"
+]
+
+for article in test_articles:
+    result = predictor.predict(article)
+    print(f"Article: {article[:50]}...")
+    print(f"Prediction: {result['label']} (Confidence: {result['confidence']:.2f}%)\n")
+```
+
+### Step 6: Save Model to Kaggle Output
 
-## How to Get Started with the Model
+```python
+import shutil
+
+# Copy the fine-tuned model to output
+output_path = "/kaggle/working/fake-news-detector-model"
+source_path = "models/fine-tunned/fake_news_detector"
 
-Use the code below to get started with the model.
+if os.path.exists(source_path):
+    shutil.copytree(source_path, output_path, dirs_exist_ok=True)
+    print(f"✅ Model saved to: {output_path}")
+else:
+    print("⚠️ Model not found")
+```
 
-[More Information Needed]
+## 🐳 Docker Deployment
 
-## Training Details
+### Building for Production
 
-### Training Data
+```bash
+# Build for your architecture
+docker build -t fake-news-detector:latest .
 
-<!-- This should link to a Dataset Card, perhaps with a short stub of information on what the training data is all about as well as documentation related to data pre-processing or additional filtering. -->
+# For different CPU architectures
+docker build --platform=linux/amd64 -t fake-news-detector:latest .  # Intel/AMD
+docker build --platform=linux/arm64 -t fake-news-detector:latest .  # ARM (Apple Silicon)
+```
 
-[More Information Needed]
+### Pushing to Registry
 
-### Training Procedure
+```bash
+# Tag your image
+docker tag fake-news-detector:latest myregistry.com/fake-news-detector:latest
 
-<!-- This relates heavily to the Technical Specifications. Content here should link to that section when it is relevant to the training procedure. -->
+# Push to Docker Hub or your private registry
+docker push myregistry.com/fake-news-detector:latest
+```
 
-#### Preprocessing [optional]
+## 📁 Project Structure
 
-[More Information Needed]
+```
+crudeLlama/
+├── data/                    # Datasets (raw & processed)
+├── models/                  # Base and fine-tuned models
+├── src/                     # Source code
+│   ├── data/               # Data loading & preprocessing
+│   ├── model/              # Model loading & LoRA setup
+│   ├── tunning/            # Training pipeline
+│   ├── inference/          # Prediction pipeline
+│   └── utils/              # Logger & memory utilities
+├── config/                  # Configuration files
+├── testing/                 # Test scripts
+├── Main.py                 # Training entry point
+├── Requirements.txt        # Python dependencies
+├── Dockerfile              # Docker configuration
+└── compose.yaml            # Docker Compose setup
+```
 
+## 🔧 Configuration
 
-#### Training Hyperparameters
+Modify settings in `config/` directory:
 
-- **Training regime:** [More Information Needed] <!--fp32, fp16 mixed precision, bf16 mixed precision, bf16 non-mixed precision, fp16 non-mixed precision, fp8 mixed precision -->
+- `config/model.py` - Model hyperparameters
+- `config/data.py` - Data loading settings
+- `config/training.py` - Training configuration
+- `config/path.py` - Path configurations
 
-#### Speeds, Sizes, Times [optional]
+## 📊 Model Details
 
-<!-- This section provides information about throughput, start/end time, checkpoint size if relevant, etc. -->
+- **Base Model**: Meta-Llama-3.2-1B
+- **Fine-tuning Method**: LoRA (Low-Rank Adaptation)
+- **Quantization**: 4-bit BitsAndBytes
+- **Framework**: PyTorch + Transformers
+- **Dataset**: 400 labeled news articles (200 fake, 200 real)
 
-[More Information Needed]
+## 🧠 Memory Efficiency
 
-## Evaluation
+The system uses advanced techniques for memory optimization:
 
-<!-- This section describes the evaluation protocols and provides the results. -->
+- 4-bit quantization reduces model size
+- LoRA adapters require only 0.8% additional parameters
+- Gradient checkpointing reduces memory footprint
+- Automatic batch size optimization
 
-### Testing Data, Factors & Metrics
+## 📝 Logging and Monitoring
 
-#### Testing Data
+All training and inference activities are logged:
 
-<!-- This should link to a Dataset Card if possible. -->
+```bash
+# Logs are saved in working directory
+# Check logs with:
+tail -f training.log
+```
 
-[More Information Needed]
+## 🐛 Troubleshooting
 
-#### Factors
+### Out of Memory Errors on Kaggle
 
-<!-- These are the things the evaluation is disaggregating by, e.g., subpopulations or domains. -->
+Reduce batch size in `config/training.py`:
 
-[More Information Needed]
+```python
+TRAINING_BATCH_SIZE = 2  # Decrease from 4
+EVAL_BATCH_SIZE = 2
+```
 
-#### Metrics
+### Model Not Found
 
-<!-- These are the evaluation metrics being used, ideally with a description of why. -->
+Ensure the model path is correctly configured in `config/path.py`.
 
-[More Information Needed]
+### GPU Not Detected
 
-### Results
+```bash
+# Check GPU availability
+python -c "import torch; print(torch.cuda.is_available())"
+```
 
-[More Information Needed]
+## 📚 References
 
-#### Summary
+- [Docker's Python guide](https://docs.docker.com/language/python/)
+- [Kaggle Notebooks Documentation](https://www.kaggle.com/notebooks)
+- [Transformers Library](https://huggingface.co/transformers/)
+- [PEFT (LoRA) Documentation](https://huggingface.co/docs/peft/)
 
+## 📄 License
 
+[Specify your license here]
 
-## Model Examination [optional]
+## 🤝 Contributing
 
-<!-- Relevant interpretability work for the model goes here -->
-
-[More Information Needed]
-
-## Environmental Impact
-
-<!-- Total emissions (in grams of CO2eq) and additional considerations, such as electricity usage, go here. Edit the suggested text below accordingly -->
-
-Carbon emissions can be estimated using the [Machine Learning Impact calculator](https://mlco2.github.io/impact#compute) presented in [Lacoste et al. (2019)](https://arxiv.org/abs/1910.09700).
-
-- **Hardware Type:** [More Information Needed]
-- **Hours used:** [More Information Needed]
-- **Cloud Provider:** [More Information Needed]
-- **Compute Region:** [More Information Needed]
-- **Carbon Emitted:** [More Information Needed]
-
-## Technical Specifications [optional]
-
-### Model Architecture and Objective
-
-[More Information Needed]
-
-### Compute Infrastructure
-
-[More Information Needed]
-
-#### Hardware
-
-[More Information Needed]
-
-#### Software
-
-[More Information Needed]
-
-## Citation [optional]
-
-<!-- If there is a paper or blog post introducing the model, the APA and Bibtex information for that should go in this section. -->
-
-**BibTeX:**
-
-[More Information Needed]
-
-**APA:**
-
-[More Information Needed]
-
-## Glossary [optional]
-
-<!-- If relevant, include terms and calculations in this section that can help readers understand the model or model card. -->
-
-[More Information Needed]
-
-## More Information [optional]
-
-[More Information Needed]
-
-## Model Card Authors [optional]
-
-[More Information Needed]
-
-## Model Card Contact
-
-[More Information Needed]
-### Framework versions
-
-- PEFT 0.18.1.dev0
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
