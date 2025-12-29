@@ -62,7 +62,7 @@ class ModelLoader:
         
         model = AutoPeftModelForCausalLM.from_pretrained(
             model_path,
-            device_map='auto',
+            device_map={"": 0},
             torch_dtype=torch.float16,
         )
         model.eval()  
